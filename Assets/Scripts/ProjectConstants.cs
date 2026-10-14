@@ -9,7 +9,7 @@ public class ProjectConstants : MonoBehaviour
     public static string WARNA_UTAMA = "#511069";
 
     // Satuan millisecond (ms)
-    public static float IPD_UJI = (float)(55f + Math.Floor(69f / 5f));
+    public static float IPD_UJI = (float)Math.Floor(55f + (69f / 5f));
 
     // Satuan meter (m)
     public static float JARAK_KONVERGENSI = 1f + (6 % 4);
