@@ -61,9 +61,9 @@ public class HapticSim : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        _gaya = HitungGaya();
-
         Move();
+
+        _gaya = HitungGaya();
 
         _amplitudo = Mathf.Clamp01(_gaya / gayaMaksimum);
         if (_amplitudo > 0f) _amplitudo = Mathf.Max(_amplitudo, _amplitudoMinimum);
@@ -122,11 +122,18 @@ public class HapticSim : MonoBehaviour
             _penetrasi = Vector3.Distance(transform.position, _hitCollider.ClosestPointOnBounds(transform.position)) + 0.01f;
         }
 
-        float kecepatanPenetrasi = (_penetrasi - _penetrasiSebelumnya) / Mathf.Max(Time.deltaTime, 0.0001f);
+        // Inilah dd / dt
+        // dd = perbedaan jarak penetrasi
+        // dt = perbedaan waktu. menggunakan max float.Epsilon agar pembagi tidak menjadi 0 yang akan mengakibatkan error
+        float kecepatanPenetrasi = (_penetrasi - _penetrasiSebelumnya) / Mathf.Max(Time.deltaTime, float.Epsilon);
         _penetrasiSebelumnya = _penetrasi;
 
-        float f = (_kekakuan * _penetrasi) + (_redaman * Mathf.Max(kecepatanPenetrasi, 0f));
-        return Mathf.Clamp(f, 0f, gayaMaksimum);
+        // Inilah F = (k x d) + (b x dd/dt)
+        // k = kekakuan
+        // d = penetrasi
+        // b = redaman
+        float F = (_kekakuan * _penetrasi) + (_redaman * Mathf.Max(kecepatanPenetrasi, 0f));
+        return Mathf.Clamp(F, 0f, gayaMaksimum);
     }
 
     /// <summary>
