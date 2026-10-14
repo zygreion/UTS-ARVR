@@ -18,10 +18,10 @@ public class HapticSim : MonoBehaviour
 {
     [Header("=== LAPIS SIMULASI (perangkat lunak) ===")]
     [Tooltip("Default Kekakuan bahan dalam newton per meter. Nilai besar = terasa keras.")]
-    [Range(10f, 2000f)] public float kekakuanDefault = ProjectConstants.KEKAKUAN_BAHAN;
+    [Range(10f, 2000f)] public float kekakuan = ProjectConstants.KEKAKUAN_BAHAN;
 
     [Tooltip("Default Redaman, melawan kecepatan penetrasi. Mencegah osilasi.")]
-    [Range(10f, 2000f)] public float redamanDefault = 20f;
+    [Range(10f, 2000f)] public float redaman = 20f;
     [Tooltip("Gaya maksimum yang boleh dihasilkan, dalam newton.")]
     [Range(5f, 60f)] public float gayaMaksimum = 15f;
 
@@ -156,12 +156,7 @@ public class HapticSim : MonoBehaviour
             _redaman = materialHaptik.redaman;
             _namaBahan = materialHaptik.namaBahan;
         }
-        else
-        {
-            _namaBahan = other.name;
-            _kekakuan = kekakuanDefault;
-            _redaman = redamanDefault;
-        }
+        else _namaBahan = other.name;
     }
 
     void OnTriggerExit(Collider other)
