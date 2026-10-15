@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using UnityEngine;
 using UnityEngine.XR;
+using static ProjectConstants;
 
 #if PAKAI_INPUT_SYSTEM
 using UnityEngine.InputSystem;
@@ -18,12 +19,13 @@ public class HapticSim : MonoBehaviour
 {
     [Header("=== LAPIS SIMULASI (perangkat lunak) ===")]
     [Tooltip("Kekakuan bahan dalam newton per meter. Nilai besar = terasa keras.")]
-    [Range(10f, 2000f)] public float kekakuan = ProjectConstants.KEKAKUAN_BAHAN;
+    [Range(MIN_KEKAKUAN, MAX_KEKAKUAN)] public float kekakuan = KEKAKUAN_BAHAN;
 
     [Tooltip("Redaman, melawan kecepatan penetrasi. Mencegah osilasi.")]
-    [Range(10f, 2000f)] public float redaman = 20f;
+    [Range(MIN_REDAMAN, MAX_REDAMAN)] public float redaman = 20f;
+
     [Tooltip("Gaya maksimum yang boleh dihasilkan, dalam newton.")]
-    [Range(5f, 60f)] public float gayaMaksimum = 15f;
+    [Range(MIN_KEKAKUAN + 0.1f, MAX_KEKAKUAN)] public float gayaMaksimum = 10f;
 
     [Header("=== LAPIS PERANGKAT (perangkat keras) ===")]
     [Tooltip("Amplitudo minimum agar getaran masih terasa (0..1).")]
@@ -36,6 +38,7 @@ public class HapticSim : MonoBehaviour
     [Tooltip("Memperlambat gerak objek sebanding dengan gaya. Tidak perlu device XR asli.")]
     [Range(0f, 1f)] public float pseudoPower = 0.7f;
 
+    [Header("=== GERAK ===")]
     [Tooltip("Kecepatan bergerak.")]
     [Range(0f, 20f)] public float moveSpeed = 5f;
 
@@ -43,19 +46,24 @@ public class HapticSim : MonoBehaviour
 
     // ----- Variabel internal -----
     private Collider _hitCollider;
-    private float _kekakuan;
-    private float _redaman;
-    private string _namaBahan;
+    private string _namaBahan = "-";
     private float _gaya;
-    private float _amplitudo;
+    private float _gayaNoCapped;
+    private float _amplitudo;  // 0...1
     Vector3 _targetPos;
-    private float _penetrasi;
-    private float _penetrasiSebelumnya;
+    private float _penetrasi;  // (dalam meter)
+    private float _penetrasiSebelumnya;  // (dalam meter)
+    private HapticInfoUI hapticInfoUI;
+    private Collider _collider;
+    private Vector3 _normalKeluar;
 
     // Start is called before the first frame update
     void Start()
     {
         _targetPos = transform.position;
+
+        hapticInfoUI = gameObject.GetComponent<HapticInfoUI>();
+        _collider = gameObject.GetComponent<Collider>();
     }
 
     // Update is called once per frame
@@ -68,6 +76,14 @@ public class HapticSim : MonoBehaviour
         _amplitudo = Mathf.Clamp01(_gaya / gayaMaksimum);
         if (_amplitudo > 0f) _amplitudo = Mathf.Max(_amplitudo, _amplitudoMinimum);
         KirimHaptik(_amplitudo);
+
+        if (hapticInfoUI != null)
+        {
+            hapticInfoUI.UpdateInfoUI(
+                _namaBahan, kekakuan, _penetrasi,
+                _hitCollider ? _gayaNoCapped : 0f, _hitCollider ? _gaya : 0f, gayaMaksimum,
+                _amplitudo, pseudoHaptics);
+        }
     }
 
     readonly Dictionary<KeyCode, Vector3> key2MoveVector = new()
@@ -82,23 +98,61 @@ public class HapticSim : MonoBehaviour
 
     void Move()
     {
-        Vector3 direction = Vector3.zero;
+        Vector3 _direction = Vector3.zero;
         foreach (var item in key2MoveVector)
         {
-            if (Input.GetKey(item.Key)) direction += item.Value;
+            if (Input.GetKey(item.Key)) _direction += item.Value;
         }
 
+        // Moving from inspector is allowed now if user doesn't press any key
+        if (_direction == Vector3.zero)
+        {
+            _targetPos = transform.position;
+            return;
+        }
+        _direction.Normalize();
+
+        // Go on if user press any key
+
+        // Left Shift will make movement 60% slower
         slowMotion = Input.GetKey(KeyCode.LeftShift);
-        float newSpeed = moveSpeed * (slowMotion ? 0.5f : 1f);
+        float newSpeed = moveSpeed * (slowMotion ? 0.4f : 1f);
 
-        _targetPos += newSpeed * Time.deltaTime * direction.normalized;
+        _targetPos += newSpeed * Time.deltaTime * _direction;
 
+        // When user is moving object from inspector, the _targetPos is equal to transform.position
+        // So lerping position will become irrelevant here
         if (pseudoHaptics)
         {
-            float resistance = 1f - (Mathf.Clamp01(_gaya / gayaMaksimum) * pseudoPower);
-            transform.position = Vector3.Lerp(transform.position, _targetPos, Mathf.Max(resistance, 0.02f));
+            // Hambatan hanya berlaku saat MENEKAN lebih dalam (arah gerak melawan normal keluar).
+            // Saat menarik keluar tidak dihambat, supaya terasa lepas, bukan lengket.
+            bool menekanMasuk = _hitCollider != null && Vector3.Dot(_direction, _normalKeluar) < 0f;
+            float resistance = 1f;
+
+            if (menekanMasuk)
+            {
+                resistance = 1f - (Mathf.Clamp01(_gaya / gayaMaksimum) * pseudoPower);
+                resistance = Mathf.Max(resistance, 0.02f);
+            }
+
+            transform.position = Vector3.Lerp(transform.position, _targetPos, resistance);
         }
         else transform.position = _targetPos;
+
+        transform.rotation = Quaternion.LookRotation(_direction);
+    }
+
+    float HitungPenetrasi(out Vector3 arahKeluar)
+    {
+        arahKeluar = Vector3.zero;
+        if (_collider == null || _hitCollider == null) return 0f;
+
+        if (Physics.ComputePenetration(
+            _collider, transform.position, transform.rotation,
+            _hitCollider, _hitCollider.transform.position, _hitCollider.transform.rotation,
+            out arahKeluar, out float jarak))
+            return jarak;
+        return 0f;
     }
 
     /// <summary>
@@ -114,13 +168,14 @@ public class HapticSim : MonoBehaviour
             return 0f;
         }
 
-        Vector3 closestPoint = _hitCollider.ClosestPoint(transform.position);
-        _penetrasi = Vector3.Distance(transform.position, closestPoint);
+        // Vector3 closestPoint = _hitCollider.ClosestPoint(transform.position);
+        // _penetrasi = Vector3.Distance(transform.position, closestPoint);
+        _penetrasi = HitungPenetrasi(out _normalKeluar);
 
-        if (_penetrasi < float.Epsilon)
-        {
-            _penetrasi = Vector3.Distance(transform.position, _hitCollider.ClosestPointOnBounds(transform.position)) + 0.01f;
-        }
+        // if (_penetrasi < float.Epsilon)
+        // {
+        //     _penetrasi = Vector3.Distance(transform.position, _hitCollider.ClosestPointOnBounds(transform.position)) + 0.01f;
+        // }
 
         // Inilah dd / dt
         // dd = perbedaan jarak penetrasi
@@ -132,7 +187,8 @@ public class HapticSim : MonoBehaviour
         // k = kekakuan
         // d = penetrasi
         // b = redaman
-        float F = (_kekakuan * _penetrasi) + (_redaman * Mathf.Max(kecepatanPenetrasi, 0f));
+        float F = (kekakuan * _penetrasi) + (redaman * Mathf.Max(kecepatanPenetrasi, 0f));
+        _gayaNoCapped = F;
         return Mathf.Clamp(F, 0f, gayaMaksimum);
     }
 
@@ -152,9 +208,9 @@ public class HapticSim : MonoBehaviour
 
         if (other.TryGetComponent<MaterialHaptik>(out var materialHaptik))
         {
-            _kekakuan = materialHaptik.kekakuan;
-            _redaman = materialHaptik.redaman;
             _namaBahan = materialHaptik.namaBahan;
+            kekakuan = materialHaptik.kekakuan;
+            redaman = materialHaptik.redaman;
         }
         else _namaBahan = other.name;
     }
@@ -175,22 +231,10 @@ public class HapticSim : MonoBehaviour
 #endif
     }
 
-    // ---------- Tampilan data di layar ----------
-    void OnGUI()
+    void OnDrawGizmos()
     {
-        GUI.color = Color.white;
-        var gayaGUI = new GUIStyle(GUI.skin.label) { fontSize = 16, };
-
-        GUI.Label(new Rect(14, 10, 900, 24), "WASD/QE = gerakkan probe   |   Tabrakkan objek untuk merasakan gaya", gayaGUI);
-        GUI.Label(new Rect(14, 38, 900, 24), $"Bahan        : {_namaBahan}   (k = {(_hitCollider ? _kekakuan : 0f):F0} N/m)", gayaGUI);
-        GUI.Label(new Rect(14, 62, 900, 24), $"Penetrasi    : {_penetrasi * 100f:F2} cm", gayaGUI);
-        GUI.Label(new Rect(14, 86, 900, 24), $"Gaya simulasi: {_gaya:F2} N   (maks {gayaMaksimum:F0} N)", gayaGUI);
-        GUI.Label(new Rect(14, 110, 900, 24), $"Amplitudo    : {_amplitudo:F2}", gayaGUI);
-        GUI.Label(new Rect(14, 134, 900, 24), $"Pseudo-haptics: {(pseudoHaptics ? "aktif" : "nonaktif")}", gayaGUI);
-
-        // Bar gaya
-        GUI.Box(new Rect(14, 164, 300, 18), "");
-        GUI.color = Color.Lerp(Color.green, Color.red, _amplitudo);
-        GUI.Box(new Rect(14, 164, 300 * _amplitudo, 18), "");
+        Gizmos.color = Color.cyan;
+        Gizmos.DrawWireSphere(transform.position, 0.075f);
+        Gizmos.DrawRay(transform.position, transform.forward * 0.2f);
     }
 }
