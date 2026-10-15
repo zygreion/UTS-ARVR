@@ -6,7 +6,7 @@ using UnityEngine;
 using UnityEngine.XR;
 
 #if PAKAI_INPUT_SYSTEM
-// using UnityEngine.InputSystem;
+using UnityEngine.InputSystem;
 #endif
 
 // Input System dan XR sama-sama memiliki kelas bernama InputDevice, sehingga
@@ -17,10 +17,10 @@ using XRInputDevice = UnityEngine.XR.InputDevice;
 public class HapticSim : MonoBehaviour
 {
     [Header("=== LAPIS SIMULASI (perangkat lunak) ===")]
-    [Tooltip("Default Kekakuan bahan dalam newton per meter. Nilai besar = terasa keras.")]
+    [Tooltip("Kekakuan bahan dalam newton per meter. Nilai besar = terasa keras.")]
     [Range(10f, 2000f)] public float kekakuan = ProjectConstants.KEKAKUAN_BAHAN;
 
-    [Tooltip("Default Redaman, melawan kecepatan penetrasi. Mencegah osilasi.")]
+    [Tooltip("Redaman, melawan kecepatan penetrasi. Mencegah osilasi.")]
     [Range(10f, 2000f)] public float redaman = 20f;
     [Tooltip("Gaya maksimum yang boleh dihasilkan, dalam newton.")]
     [Range(5f, 60f)] public float gayaMaksimum = 15f;
@@ -117,7 +117,7 @@ public class HapticSim : MonoBehaviour
         Vector3 closestPoint = _hitCollider.ClosestPoint(transform.position);
         _penetrasi = Vector3.Distance(transform.position, closestPoint);
 
-        if (_penetrasi < 0.0001f)
+        if (_penetrasi < float.Epsilon)
         {
             _penetrasi = Vector3.Distance(transform.position, _hitCollider.ClosestPointOnBounds(transform.position)) + 0.01f;
         }
@@ -168,12 +168,12 @@ public class HapticSim : MonoBehaviour
         }
     }
 
-    //     void OnDisable()
-    //     {
-    // #if PAKAI_INPUT_SYSTEM
-    //         if (Gamepad.current != null) Gamepad.current.SetMotorSpeeds(0f, 0f);
-    // #endif
-    //     }
+    void OnDisable()
+    {
+#if PAKAI_INPUT_SYSTEM
+        // if (Gamepad.current != null) Gamepad.current.SetMotorSpeeds(0f, 0f);
+#endif
+    }
 
     // ---------- Tampilan data di layar ----------
     void OnGUI()
