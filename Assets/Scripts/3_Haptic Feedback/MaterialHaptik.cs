@@ -14,6 +14,7 @@
 // =============================================================================
 
 using UnityEngine;
+using static ProjectConstants;
 
 public class MaterialHaptik : MonoBehaviour
 {
@@ -21,8 +22,8 @@ public class MaterialHaptik : MonoBehaviour
     public string namaBahan = "Bahan";
 
     [Tooltip("Kekakuan bahan dalam newton per meter. Besar = terasa keras.")]
-    [Range(10f, 2000f)] public float kekakuan = ProjectConstants.KEKAKUAN_BAHAN;
+    [Range(MIN_KEKAKUAN, MAX_KEKAKUAN)] public float kekakuan = KEKAKUAN_BAHAN;
 
     [Tooltip("Redaman bahan. Besar = terasa seperti menekan benda basah atau kental.")]
-    [Range(0f, 50f)] public float redaman = 5f;
+    [Range(MIN_REDAMAN, MAX_REDAMAN)] public float redaman = 5f;
 }

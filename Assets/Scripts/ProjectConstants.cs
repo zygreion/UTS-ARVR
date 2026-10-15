@@ -1,27 +1,36 @@
-using System;
-using UnityEngine;
-
-public class ProjectConstants : MonoBehaviour
+public static class ProjectConstants
 {
-    public static string NIM = "2310511069";
+    public const string NIM = "2310511069";
 
     // HEX
-    public static string WARNA_UTAMA = "#511069";
+    public const string WARNA_UTAMA = "#511069";
 
-    // Satuan millisecond (ms) = 68 ms
-    public static float IPD_UJI = Mathf.Floor(55f + (69f / 5f));
+    // Satuan millisecond (ms) 
+    // Mathf.Floor(55f + (69f / 5f)) = 68 ms
+    public const float IPD_UJI = 68;
 
-    // Satuan meter (m) = 3 m
-    public static float JARAK_KONVERGENSI = 1f + (6 % 4);
+    // Satuan meter (m)
+    // 1f + (6 % 4) = 3 m
+    public const float JARAK_KONVERGENSI = 3;
 
-    // Satuan Newton/meter (N/m) = 100 N/m
-    public static float KEKAKUAN_BAHAN = 100f + 0 * 200;
+    // Satuan Newton/meter (N/m)
+    // 100f + 0 * 200 = 100 N/m
+    public const float KEKAKUAN_BAHAN = 100f;
 
     // Satuan millimeter (mm) = 6 mm
-    public static float NOISE_TRACKER = 5f + 1;
+    // 5f + 1f
+    public const float NOISE_TRACKER = 6f;
 
-    // Satuan meter/second (m/s) = 0.9 m/s
-    public static float AMBANG_GESTUR = 0.8f + 1 * 0.1f;
+    // Satuan meter/second (m/s)
+    // 0.8f + 1f * 0.1f = 0.9 m/s
+    public const float AMBANG_GESTUR = 0.9f;
 
-    public static string TEMA_APLIKASI = "Galeri Pengenalan Kampus";
+    public const string TEMA_APLIKASI = "Galeri Pengenalan Kampus";
+
+    public const float MIN_KEKAKUAN = 0f;
+    public const float MAX_KEKAKUAN = 2000f;
+
+    public const float MIN_REDAMAN = 0f;
+    public const float MAX_REDAMAN = 200f;
+    // 200n +
 }
