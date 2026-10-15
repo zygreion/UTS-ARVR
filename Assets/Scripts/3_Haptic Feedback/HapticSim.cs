@@ -45,7 +45,6 @@ public class HapticSim : MonoBehaviour
     public bool slowMotion = false;
 
     // ----- Variabel internal -----
-    private Vector3 _direction;
     private Collider _hitCollider;
     private string _namaBahan = "-";
     private float _gaya;
@@ -99,7 +98,7 @@ public class HapticSim : MonoBehaviour
 
     void Move()
     {
-        _direction = Vector3.zero;
+        Vector3 _direction = Vector3.zero;
         foreach (var item in key2MoveVector)
         {
             if (Input.GetKey(item.Key)) _direction += item.Value;
@@ -139,6 +138,8 @@ public class HapticSim : MonoBehaviour
             transform.position = Vector3.Lerp(transform.position, _targetPos, resistance);
         }
         else transform.position = _targetPos;
+
+        transform.rotation = Quaternion.LookRotation(_direction);
     }
 
     float HitungPenetrasi(out Vector3 arahKeluar)
@@ -233,7 +234,7 @@ public class HapticSim : MonoBehaviour
     void OnDrawGizmos()
     {
         Gizmos.color = Color.cyan;
-        // Gizmos.DrawWireSphere(transform.position, 0.05f);
-        Gizmos.DrawLine(transform.position, transform.position + _direction / Vector3.Magnitude(_direction) * 0.2f);
+        Gizmos.DrawWireSphere(transform.position, 0.075f);
+        Gizmos.DrawRay(transform.position, transform.forward * 0.2f);
     }
 }
