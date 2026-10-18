@@ -22,8 +22,8 @@ public class TrackerSim : MonoBehaviour
 
     [Header("=== NOISE ===")]
     [Range(0f, 50f)] public float noisePosMm = ProjectConstants.NOISE_TRACKER;
-    [Range(0f, 5f)] public float noiseRotDeg = ProjectConstants.NOISE_TRACKER;
-    [Range(0f, 1f)] public float smoothing = 0f;
+    [Range(0f, 360f)] public float noiseRotDeg = ProjectConstants.NOISE_TRACKER;
+    [Range(0f, 0.99f)] public float smoothing = 0f;
     public bool enableNoise = false;
 
     [Header("=== SENSOR OPTIK ===")]
@@ -49,12 +49,16 @@ public class TrackerSim : MonoBehaviour
     private bool _ready;
     private float _error;
     private float _errorAvg;
+    private Camera _refCamera;
 
     // Start is called before the first frame update
     void Start()
     {
         if (trackedObj != null)
             _renderers = trackedObj.GetComponentsInChildren<Renderer>();
+
+        if (referenceViewer != null)
+            _refCamera = referenceViewer.GetComponent<Camera>();
     }
 
     // Update is called once per frame
@@ -71,54 +75,25 @@ public class TrackerSim : MonoBehaviour
         HideTracked(_hidden);
 
         // 3. Sample
-        if (_now >= _nextSampleTime)
-        {
-            _nextSampleTime = _now + 1f / refreshHz;
+        CreateSample();
 
-            if (!_hidden)
-            {
-                Vector3 p = realObj.position
-                            + (enableNoise ? 1f : 0f) * (noisePosMm / 1000f) * Random.onUnitSphere
-                            + _drift
-                            + offsetKalibrasi;
-
-                Quaternion r = realObj.rotation
-                              * Quaternion.Euler((enableNoise ? 1f : 0f) * noiseRotDeg * Random.onUnitSphere);
-
-                _samples.Enqueue(new Sample { t = _now, p = p, r = r });
-            }
-        }
         // 4. Latensi
-        float limit = _now - latencyMs / 1000f;
-        while (_samples.Count > 0 && _samples.Peek().t <= limit)
-        {
-            Sample s = _samples.Dequeue();
-            _posRaw = s.p;
-            _rotRaw = s.r;
-
-            if (!_ready)
-            {
-                _posFilter = _posRaw;
-                _rotFilter = _rotRaw;
-                _ready = true;
-            }
-        }
-
-        if (!_ready) return;
+        if (!LatencyReady()) return;
 
         // 5. Filter: exponential smoothing, dibuat tidak bergantung frame rate
-        float alpha = 1f - Mathf.Pow(smoothing, Time.deltaTime * 60f);
-        _posFilter = Vector3.Lerp(_posFilter, _posRaw, alpha);
-        _rotFilter = Quaternion.Slerp(_rotFilter, _rotRaw, alpha);
+        NoiseFilter();
 
         // 6. Galat Error
-        _error = Vector3.Distance(trackedObj.position, realObj.position) * 1000f;
-        _errorAvg = Mathf.Lerp(_errorAvg, _error, Time.deltaTime * 2f);
+        CalulateError();
 
         trackedObj.SetPositionAndRotation(_posFilter, _rotFilter);
         UpdateInfoUI();
+
+        if (_refCamera != null)
+            _refCamera.enabled = Input.GetKey(KeyCode.Space);
     }
 
+    // ----- Main Functions -----
     void Drift()
     {
         if (Input.GetKeyDown(KeyCode.R)) _drift = Vector3.zero;
@@ -153,6 +128,61 @@ public class TrackerSim : MonoBehaviour
         }
     }
 
+    void CreateSample()
+    {
+        if (_now >= _nextSampleTime)
+        {
+            _nextSampleTime = _now + 1f / refreshHz;
+
+            if (!_hidden)
+            {
+                Vector3 p = realObj.position
+                            + (enableNoise ? 1f : 0f) * (noisePosMm / 1000f) * Random.onUnitSphere
+                            + _drift
+                            + offsetKalibrasi;
+
+                Quaternion r = realObj.rotation
+                              * Quaternion.Euler((enableNoise ? 1f : 0f) * noiseRotDeg * Random.onUnitSphere);
+
+                _samples.Enqueue(new Sample { t = _now, p = p, r = r });
+            }
+        }
+    }
+
+    bool LatencyReady()
+    {
+        float limit = _now - latencyMs / 1000f;
+        while (_samples.Count > 0 && _samples.Peek().t <= limit)
+        {
+            Sample s = _samples.Dequeue();
+            _posRaw = s.p;
+            _rotRaw = s.r;
+
+            if (!_ready)
+            {
+                _posFilter = _posRaw;
+                _rotFilter = _rotRaw;
+                _ready = true;
+            }
+        }
+
+        return _ready;
+    }
+
+    void NoiseFilter()
+    {
+        float alpha = 1f - Mathf.Pow(smoothing, Time.deltaTime * 60f);
+        _posFilter = Vector3.Lerp(_posFilter, _posRaw, alpha);
+        _rotFilter = Quaternion.Slerp(_rotFilter, _rotRaw, alpha);
+    }
+
+    void CalulateError()
+    {
+        _error = Vector3.Distance(trackedObj.position, realObj.position) * 1000f;
+        _errorAvg = Mathf.Lerp(_errorAvg, _error, Time.deltaTime * 2f);
+    }
+
+    // ----- Helpers -----
     void OnDrawGizmos()
     {
         if (opticSensor != null && realObj != null)
@@ -178,7 +208,6 @@ public class TrackerSim : MonoBehaviour
         {
             Vector3 lokal = referenceViewer.InverseTransformPoint(trackedObj.position);
             rel = $"\nRelatif thd viewer : ({lokal.x:F2}, {lokal.y:F2}, {lokal.z:F2}) m";
-            referenceViewer.LookAt(trackedObj);
         }
 
         string statusText =
