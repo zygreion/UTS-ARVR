@@ -97,8 +97,6 @@ public class StereoRig : MonoBehaviour
         if (!initialized)
             return;
 
-        // Convert 68 mm to meters and place each eye
-        // half an IPD away from the rig's center.
         float halfIPD = ipdMillimeters / 2000f;
 
         leftCamera.transform.localPosition = new Vector3(
@@ -142,7 +140,7 @@ public class StereoRig : MonoBehaviour
 
     private void ApplyOffAxis()
     {
-        // Keep both cameras parallel.
+        //Keep both cameras parallel.
         leftCamera.transform.localRotation = Quaternion.identity;
         rightCamera.transform.localRotation = Quaternion.identity;
 
@@ -155,16 +153,12 @@ public class StereoRig : MonoBehaviour
         float near = cam.nearClipPlane;
         float far = cam.farClipPlane;
 
-        // Calculate the half-height and half-width
-        // of the perspective frustum at the near plane.
         float halfHeight = near * Mathf.Tan(
             cam.fieldOfView * 0.5f * Mathf.Deg2Rad
         );
 
         float halfWidth = halfHeight * cam.aspect;
 
-        // Shift each eye's frustum in the opposite direction
-        // from its camera offset.
         float eyeOffset = cam.transform.localPosition.x;
 
         float shift = -eyeOffset * near / convergenceDistance;
@@ -189,12 +183,12 @@ public class StereoRig : MonoBehaviour
         leftCamera.ResetProjectionMatrix();
         rightCamera.ResetProjectionMatrix();
 
-        // Find the midpoint between the two camera positions.
+        //Find the midpoint between the two camera positions.
         Vector3 eyeMidpoint =
             (leftCamera.transform.position
             + rightCamera.transform.position) * 0.5f;
 
-        // Convergence point stays at eye height.
+        //Convergence point stays at eye height.
         Vector3 target =
             eyeMidpoint + transform.forward * convergenceDistance;
 
