@@ -186,16 +186,18 @@ public class StereoRig : MonoBehaviour
 
     private void ApplyToeIn()
     {
-        // Restore the normal perspective projection.
         leftCamera.ResetProjectionMatrix();
         rightCamera.ResetProjectionMatrix();
 
-        // Define a convergence point 3 meters in front
-        // of the center of the stereo rig.
-        Vector3 target = transform.position
-                       + transform.forward * convergenceDistance;
+        // Find the midpoint between the two camera positions.
+        Vector3 eyeMidpoint =
+            (leftCamera.transform.position
+            + rightCamera.transform.position) * 0.5f;
 
-        // Rotate each camera toward the same point.
+        // Convergence point stays at eye height.
+        Vector3 target =
+            eyeMidpoint + transform.forward * convergenceDistance;
+
         leftCamera.transform.rotation = Quaternion.LookRotation(
             target - leftCamera.transform.position,
             transform.up
