@@ -1,5 +1,4 @@
-using System.Collections;
-using System.Collections.Generic;
+using System;
 using UnityEngine;
 
 public class Movement : MonoBehaviour
@@ -18,6 +17,7 @@ public class Movement : MonoBehaviour
     public KeyCode slow = KeyCode.LeftShift;
     public float moveSpeed = 5f;
     public bool slowMotion = false;
+    public bool autoMove = true;
 
     [Header("=== ROTATION ===")]
     public RotationType rotationType = RotationType.None;
@@ -25,20 +25,35 @@ public class Movement : MonoBehaviour
 
     [Header("=== GIZMOS ===")]
     public bool drawRay = true;
-    [Range(0f, 10f)] public float rayLength = 1f;
+    [Range(0f, 1f)] public float rayLength = 0.5f;
 
     // ----- Internal Variables -----
     private float _pitch;
     private float _yaw;
     private Vector3 _direction;
+    public Vector3 _targetPos;
+    public Vector3 _previousPos;
+
+    public Action BeforeMove;
+
+    void Start()
+    {
+        _targetPos = transform.position;
+    }
 
     void Update()
     {
         Rotate();
-        Move();
+        UpdateTargetPos();
+
+        if (autoMove)
+        {
+            BeforeMove?.Invoke();
+            MoveToTarget();
+        }
     }
 
-    public void Move()
+    protected virtual void UpdateTargetPos()
     {
         Vector3 newDirection = Vector3.zero;
 
@@ -65,11 +80,19 @@ public class Movement : MonoBehaviour
         slowMotion = Input.GetKey(slow);
         float newSpeed = moveSpeed * (slowMotion ? 0.4f : 1f);
 
-        transform.position += newSpeed * Time.deltaTime * newDirection;
+        _targetPos += newSpeed * Time.deltaTime * newDirection;
         _direction = newDirection;
     }
 
-    void Rotate()
+    public virtual void OverrideNextPos(Vector3 pos) => _targetPos = pos;
+
+    public virtual void MoveToTarget()
+    {
+        transform.position = _targetPos;
+        _previousPos = _targetPos;
+    }
+
+    protected virtual void Rotate()
     {
         if (rotationType == RotationType.None || _direction == Vector3.zero) return;
         if (rotationType == RotationType.Direction) transform.rotation = Quaternion.LookRotation(_direction);
@@ -82,7 +105,7 @@ public class Movement : MonoBehaviour
         }
     }
 
-    void OnDrawGizmos()
+    protected virtual void OnDrawGizmos()
     {
         if (!drawRay) return;
 
