@@ -86,18 +86,18 @@ public class HapticSim : MonoBehaviour
 
     Vector3 GetNextPos()
     {
-        _direction = Vector3.zero;
+        Vector3 newDirection = Vector3.zero;
         foreach (var item in key2MoveVector)
         {
-            if (Input.GetKey(item.Key)) _direction += item.Value;
+            if (Input.GetKey(item.Key)) newDirection += item.Value;
         }
 
         // Moving from inspector is allowed now if user doesn't press any key
-        if (_direction == Vector3.zero)
+        if (newDirection == Vector3.zero)
         {
             return transform.position;
         }
-        _direction.Normalize();
+        newDirection.Normalize();
 
         // Go on if user press any key
 
@@ -105,7 +105,8 @@ public class HapticSim : MonoBehaviour
         slowMotion = Input.GetKey(KeyCode.LeftShift);
         float newSpeed = moveSpeed * (slowMotion ? 0.4f : 1f);
 
-        return _targetPos + newSpeed * Time.deltaTime * _direction;
+        _direction = newDirection;
+        return _targetPos + newSpeed * Time.deltaTime * newDirection;
     }
 
     float HitungPenetrasi(out Vector3 arahKeluar)
