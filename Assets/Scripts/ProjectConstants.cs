@@ -32,5 +32,4 @@ public static class ProjectConstants
 
     public const float MIN_REDAMAN = 0f;
     public const float MAX_REDAMAN = 200f;
-    // 200n +
 }
