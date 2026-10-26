@@ -1,19 +1,6 @@
-#define PAKAI_INPUT_SYSTEM
-
 using System.Collections.Generic;
-using System.ComponentModel;
 using UnityEngine;
-using UnityEngine.XR;
 using static ProjectConstants;
-
-#if PAKAI_INPUT_SYSTEM
-using UnityEngine.InputSystem;
-#endif
-
-// Input System dan XR sama-sama memiliki kelas bernama InputDevice, sehingga
-// nama tersebut menjadi ambigu bila keduanya diimpor. Alias di bawah ini
-// menegaskan bahwa yang dimaksud adalah InputDevice milik XR.
-using XRInputDevice = UnityEngine.XR.InputDevice;
 
 public class HapticSim : MonoBehaviour
 {
@@ -56,6 +43,7 @@ public class HapticSim : MonoBehaviour
     private HapticInfoUI hapticInfoUI;
     private Collider _collider;
     private Vector3 _normalKeluar;
+    private Vector3 _direction;
 
     // Start is called before the first frame update
     void Start()
@@ -69,7 +57,7 @@ public class HapticSim : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        Move();
+        _targetPos = GetNextPos();
 
         _gaya = HitungGaya();
 
@@ -80,7 +68,7 @@ public class HapticSim : MonoBehaviour
         if (hapticInfoUI != null)
         {
             hapticInfoUI.UpdateInfoUI(
-                _namaBahan, kekakuan, _penetrasi,
+                _namaBahan, _hitCollider ? kekakuan : 0f, _penetrasi,
                 _hitCollider ? _gayaNoCapped : 0f, _hitCollider ? _gaya : 0f, gayaMaksimum,
                 _amplitudo, pseudoHaptics);
         }
@@ -96,21 +84,20 @@ public class HapticSim : MonoBehaviour
         { KeyCode.Q, Vector3.down },
     };
 
-    void Move()
+    Vector3 GetNextPos()
     {
-        Vector3 _direction = Vector3.zero;
+        Vector3 newDirection = Vector3.zero;
         foreach (var item in key2MoveVector)
         {
-            if (Input.GetKey(item.Key)) _direction += item.Value;
+            if (Input.GetKey(item.Key)) newDirection += item.Value;
         }
 
         // Moving from inspector is allowed now if user doesn't press any key
-        if (_direction == Vector3.zero)
+        if (newDirection == Vector3.zero)
         {
-            _targetPos = transform.position;
-            return;
+            return transform.position;
         }
-        _direction.Normalize();
+        newDirection.Normalize();
 
         // Go on if user press any key
 
@@ -118,28 +105,8 @@ public class HapticSim : MonoBehaviour
         slowMotion = Input.GetKey(KeyCode.LeftShift);
         float newSpeed = moveSpeed * (slowMotion ? 0.4f : 1f);
 
-        _targetPos += newSpeed * Time.deltaTime * _direction;
-
-        // When user is moving object from inspector, the _targetPos is equal to transform.position
-        // So lerping position will become irrelevant here
-        if (pseudoHaptics)
-        {
-            // Hambatan hanya berlaku saat MENEKAN lebih dalam (arah gerak melawan normal keluar).
-            // Saat menarik keluar tidak dihambat, supaya terasa lepas, bukan lengket.
-            bool menekanMasuk = _hitCollider != null && Vector3.Dot(_direction, _normalKeluar) < 0f;
-            float resistance = 1f;
-
-            if (menekanMasuk)
-            {
-                resistance = 1f - (Mathf.Clamp01(_gaya / gayaMaksimum) * pseudoPower);
-                resistance = Mathf.Max(resistance, 0.02f);
-            }
-
-            transform.position = Vector3.Lerp(transform.position, _targetPos, resistance);
-        }
-        else transform.position = _targetPos;
-
-        transform.rotation = Quaternion.LookRotation(_direction);
+        _direction = newDirection;
+        return _targetPos + newSpeed * Time.deltaTime * newDirection;
     }
 
     float HitungPenetrasi(out Vector3 arahKeluar)
@@ -197,7 +164,26 @@ public class HapticSim : MonoBehaviour
     /// </summary>
     void KirimHaptik(float amplitudo)
     {
+        // When user is moving object from inspector, the _targetPos is equal to transform.position
+        // So lerping position will become irrelevant here
+        if (pseudoHaptics)
+        {
+            // Hambatan hanya berlaku saat MENEKAN lebih dalam (arah gerak melawan normal keluar).
+            // Saat menarik keluar tidak dihambat, supaya terasa lepas, bukan lengket.
+            bool menekanMasuk = _hitCollider != null && Vector3.Dot(_direction, _normalKeluar) < 0f;
+            float resistance = 1f;
 
+            if (menekanMasuk)
+            {
+                resistance = 1f - (amplitudo * pseudoPower);
+                resistance = Mathf.Max(resistance, 0.02f);
+            }
+
+            transform.position = Vector3.Lerp(transform.position, _targetPos, resistance);
+        }
+        else transform.position = _targetPos;
+
+        transform.rotation = Quaternion.LookRotation(_direction);
     }
 
 
@@ -222,13 +208,6 @@ public class HapticSim : MonoBehaviour
             _hitCollider = null;
             _namaBahan = "-";
         }
-    }
-
-    void OnDisable()
-    {
-#if PAKAI_INPUT_SYSTEM
-        // if (Gamepad.current != null) Gamepad.current.SetMotorSpeeds(0f, 0f);
-#endif
     }
 
     void OnDrawGizmos()
